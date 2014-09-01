@@ -6,8 +6,17 @@
         this.start = new Date().getTime();
         this.keyboarder = new Keyboarder();
         this.clock = 0;
-        this.players = [new Player(this)];
-        this.enemies = MakeEnemies(this, 100);
+        this.player_types = ['slower', 'ender'];
+        this.next_player_type_index = 0;
+        //From http://www.colorpicker.com/12BFE6 -> analogic
+        this.player_colours = [
+            "rgba(18, 191, 230, 1)",
+            "rgba(163, 18, 230, 1)",
+            "rgba(230, 57, 18, 1)",
+            "rgba(85, 230, 18, 1)"
+        ];
+        this.players = [new Player(this, 'P1', 'hero')];
+        this.enemies = MakeEnemies(this, 10);
         this.bodies = this.players.concat(this.enemies);
         var self = this;
         var tick = function() {
@@ -17,17 +26,30 @@
             requestAnimationFrame(tick);
         };
 
+        window.addEventListener('keyup', function(e) {
+            if (e.keyCode === self.keyboarder.KEYS.GENERAL.SPACE) {
+                self.addPlayer();
+            }
+        });
+
+        window.addEventListener('keyup', function(e) {
+            if (e.keyCode === self.keyboarder.KEYS.GENERAL.ENTER) {
+                self.toggleNextPlayerTypeIndex();
+            }
+        });
+
         tick();
     };
 
     Game.prototype = {
         update : function() {
+            this.bodies = this.players.concat(this.enemies);
             for (var i = 0; i < this.bodies.length; i++) {
                 if (this.bodies[i].update !== undefined) {
                     this.bodies[i].update();
                 }
             }
-            if (this.keyboarder.isDown(this.keyboarder.KEYS.ESC)) {
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.GENERAL.ESC)) {
                 //Take this out of final game.  Just here to not turn my laptop
                 //into a toaster when debugging :)
                 throw "Exiting because received ESC";
@@ -51,31 +73,58 @@
             }
         },
 
+        addPlayer: function() {
+            var n = this.players.length;
+            if (n >= 4) {
+                console.log("nope, can't add more than 4 at the moment, sorry!");
+                return;
+            }
+            var next_id = 'P' + (n + 1);
+            this.players.push(new Player(this, next_id, this.player_types[this.next_player_type_index]));
+        },
+
+        toggleNextPlayerTypeIndex: function() {
+            this.next_player_type_index = (this.next_player_type_index + 1) % (this.player_types.length);
+        },
+
         addBody: function(body) {
             this.bodies.push(body);
         }
     };
 
-    var Player = function(game) {
+    var Player = function(game, id, type) {
         this.game = game;
-        this.size = {r : 5};
+        this.id = id;
+        this.type = type;
         this.center = { x: game.center.x, y: game.center.y + game.size.y/4 };
+        this.n = Number(id[1]) - 1;
+        this.colour = this.game.player_colours[this.n];
+        this.size = {r : 5};
         this.movespeed = 3;
-        this.keyboarder = new Keyboarder();
+        if (this.type === 'hero') {
+            this.size = {r : 5};
+            this.movespeed = 3;
+        } else if (this.type === 'slower') {
+            this.size = {r : 20};
+            this.movespeed = 2;
+        } else if (this.type === 'ender') {
+            this.size = {r : 3};
+            this.movespeed = 5;
+        }
     };
 
     Player.prototype = {
         update: function() {
-            if (this.keyboarder.isDown(this.keyboarder.KEYS.LEFT)) {
+            if (this.game.keyboarder.isDown(this.game.keyboarder.KEYS[this.id].LEFT)) {
                 this.center.x -= this.movespeed; 
             }
-            if (this.keyboarder.isDown(this.keyboarder.KEYS.RIGHT)) {
+            if (this.game.keyboarder.isDown(this.game.keyboarder.KEYS[this.id].RIGHT)) {
                 this.center.x += this.movespeed; 
             }
-            if (this.keyboarder.isDown(this.keyboarder.KEYS.DOWN)) {
+            if (this.game.keyboarder.isDown(this.game.keyboarder.KEYS[this.id].DOWN)) {
                 this.center.y += this.movespeed; 
             }
-            if (this.keyboarder.isDown(this.keyboarder.KEYS.UP)) {
+            if (this.game.keyboarder.isDown(this.game.keyboarder.KEYS[this.id].UP)) {
                 this.center.y -= this.movespeed; 
             }
         },
@@ -83,7 +132,7 @@
         draw: function(screen) {
             screen.beginPath();
             screen.arc(this.center.x, this.center.y, this.size.r, 0, 2 * Math.PI, false);
-            screen.fillStyle = 'blue';
+            screen.fillStyle = this.colour;
             screen.fill();
             screen.closePath();
         },
@@ -153,7 +202,18 @@
             return keyState[keyCode] === true;
         };
 
-        this.KEYS = { LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40, SPACE: 32, ESC: 27 };
+        this.KEYS = {
+            GENERAL: { SPACE: 32, ESC: 27, ENTER: 13 },
+            //P1 : arrow keys.
+            P1: { LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40 },
+            //P2 : WASD
+            P2: { LEFT: 65, RIGHT: 68, UP: 87, DOWN: 83 },
+            //P3 : IJKL
+            P3: { LEFT: 74, RIGHT: 76, UP: 73, DOWN: 75 },
+            //P4 : GVBN
+            P4: { LEFT: 86, RIGHT: 78, UP: 71, DOWN: 66}
+        };
+
     };
 
     var MakeEnemies = function(game, n_enemies) {
