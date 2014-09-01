@@ -1,14 +1,14 @@
 (function() {
     var Game = function() {
         var screen = document.getElementById('game').getContext('2d');
-        console.log("made it.");
         this.size = { x: screen.canvas.width, y: screen.canvas.height };
         this.center = { x: this.size.x / 2, y: this.size.y / 2 };
         this.start = new Date().getTime();
         this.keyboarder = new Keyboarder();
         this.clock = 0;
-
-        this.bodies = [new Player(this)].concat(MakeEnemies(this));
+        this.players = [new Player(this)];
+        this.enemies = MakeEnemies(this, 100);
+        this.bodies = this.players.concat(this.enemies);
         var self = this;
         var tick = function() {
             self.clock = new Date().getTime() - self.start;
@@ -27,7 +27,19 @@
                     this.bodies[i].update();
                 }
             }
-            //reportCollisions(this.bodies);
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.ESC)) {
+                //Take this out of final game.  Just here to not turn my laptop
+                //into a toaster when debugging :)
+                throw "Exiting because received ESC";
+            }
+            var collisions = reportCollisions(this.players, this.enemies);
+            for (var i = 0; i < collisions.length; i++) {
+                for (var j = 0; j < collisions[i].length; j++) {
+                    if (collisions[i][j].collide !== undefined) {
+                        collisions[i][j].collide();
+                    }
+                }
+            }
         },
 
         draw: function(screen) {
@@ -74,6 +86,10 @@
             screen.fillStyle = 'blue';
             screen.fill();
             screen.closePath();
+        },
+
+        collide: function() {
+            console.log("game over, man.");
         }
     };
 
@@ -83,7 +99,6 @@
         this.center = { x: x_start, y: y_start};
         this.speed_mult = 3;
         this.speed = { x: (Math.random() - 0.5) * this.speed_mult, y: (Math.random() - 0.5) * this.speed_mult}
-        this.keyboarder = new Keyboarder();
     };
 
     Enemy.prototype = {
@@ -138,14 +153,14 @@
             return keyState[keyCode] === true;
         };
 
-        this.KEYS = { LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40, SPACE: 32 }; 
+        this.KEYS = { LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40, SPACE: 32, ESC: 27 };
     };
 
-    var MakeEnemies = function(game) {
+    var MakeEnemies = function(game, n_enemies) {
         var enemies = [];
         var rows = 10;
         var columns = 10;
-        var num_enemies = 50;
+        var num_enemies = n_enemies;
         var count = 0;
         var x,y;
         for (var i = 0; i < rows; i++) {
@@ -161,6 +176,38 @@
             }
         }
         return enemies;
+    }
+
+    var reportCollisions = function(players, enemies) {
+        //assumes players are cicles, enemies are squares.
+        var collisions = [];
+        var player, enemy;
+        for (var i = 0; i < players.length; i++) {
+            player = players[i];
+            for (var j = 0; j < enemies.length; j++) {
+                enemy = enemies[j];
+                if ((enemy.center.x + enemy.size.x/2) < (player.center.x - player.size.r)) {
+                    //Player is to the right of the enemy
+                    continue;
+                }
+                if ((enemy.center.x - enemy.size.x/2) > (player.center.x + player.size.r)) {
+                    //Player is to the left of the enemy
+                    continue;
+                }
+                if ((enemy.center.y + enemy.size.y/2) < (player.center.y - player.size.r)) {
+                    //player is above the enemy
+                    continue;
+                }
+                if ((enemy.center.y - enemy.size.y/2) > (player.center.y + player.size.r)) {
+                    //player is above the enemy
+                    continue;
+                }
+
+                //TODO: Implement better collision detection, might want hitboxes or true circular detection.
+                collisions.push([player, enemy]);
+            }
+        }
+        return collisions;
     }
 
     window.addEventListener('load', function() {
