@@ -1,0 +1,169 @@
+(function() {
+    var Game = function() {
+        var screen = document.getElementById('game').getContext('2d');
+        console.log("made it.");
+        this.size = { x: screen.canvas.width, y: screen.canvas.height };
+        this.center = { x: this.size.x / 2, y: this.size.y / 2 };
+        this.start = new Date().getTime();
+        this.keyboarder = new Keyboarder();
+        this.clock = 0;
+
+        this.bodies = [new Player(this)].concat(MakeEnemies(this));
+        var self = this;
+        var tick = function() {
+            self.clock = new Date().getTime() - self.start;
+            self.update();
+            self.draw(screen);
+            requestAnimationFrame(tick);
+        };
+
+        tick();
+    };
+
+    Game.prototype = {
+        update : function() {
+            for (var i = 0; i < this.bodies.length; i++) {
+                if (this.bodies[i].update !== undefined) {
+                    this.bodies[i].update();
+                }
+            }
+            //reportCollisions(this.bodies);
+        },
+
+        draw: function(screen) {
+            screen.clearRect(0,0, this.size.x, this.size.y);
+            for (var i = 0; i < this.bodies.length; i++) {
+                if (this.bodies[i].draw !== undefined) {
+                    this.bodies[i].draw(screen);
+                }
+            }
+        },
+
+        addBody: function(body) {
+            this.bodies.push(body);
+        }
+    };
+
+    var Player = function(game) {
+        this.game = game;
+        this.size = {r : 5};
+        this.center = { x: game.center.x, y: game.center.y + game.size.y/4 };
+        this.movespeed = 3;
+        this.keyboarder = new Keyboarder();
+    };
+
+    Player.prototype = {
+        update: function() {
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.LEFT)) {
+                this.center.x -= this.movespeed; 
+            }
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.RIGHT)) {
+                this.center.x += this.movespeed; 
+            }
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.DOWN)) {
+                this.center.y += this.movespeed; 
+            }
+            if (this.keyboarder.isDown(this.keyboarder.KEYS.UP)) {
+                this.center.y -= this.movespeed; 
+            }
+        },
+
+        draw: function(screen) {
+            screen.beginPath();
+            screen.arc(this.center.x, this.center.y, this.size.r, 0, 2 * Math.PI, false);
+            screen.fillStyle = 'blue';
+            screen.fill();
+            screen.closePath();
+        }
+    };
+
+    var Enemy = function(game, x_start, y_start) {
+        this.game = game;
+        this.size = {x: 10, y: 10};
+        this.center = { x: x_start, y: y_start};
+        this.speed_mult = 3;
+        this.speed = { x: (Math.random() - 0.5) * this.speed_mult, y: (Math.random() - 0.5) * this.speed_mult}
+        this.keyboarder = new Keyboarder();
+    };
+
+    Enemy.prototype = {
+        update: function() {
+            //Randomly change directions sometimes.
+            if (Math.random() > 0.995) {
+                this.speed.x = (Math.random() - 0.5) * this.speed_mult; 
+                this.speed.y = (Math.random() - 0.5) * this.speed_mult; 
+            }
+            if (this.center.x  + (0.5 * this.size.x) >= this.game.size.x && this.speed.x > 0) {
+                this.speed.x *= -1;
+                this.center.x = this.game.size.x - (0.5 * this.size.x);
+            }
+            if (this.center.x  - (0.5 * this.size.x) <= 0 && this.speed.x < 0) {
+                this.speed.x *= -1;
+                this.center.x = 0.5 * this.size.x;
+            }
+            if (this.center.y  + (0.5 * this.size.y) >= this.game.size.y && this.speed.y > 0) {
+                this.speed.y *= -1;
+                this.center.y = this.game.size.y - (0.5 * this.size.y);
+            }
+            if (this.center.y  - (0.5 * this.size.y) <= 0 && this.speed.y < 0) {
+                this.speed.y *= -1;
+                this.center.y = 0.5 * this.size.y;
+            }
+            this.center.x += this.speed.x;
+            this.center.y += this.speed.y;
+
+        },
+
+        draw: function(screen) {
+            screen.beginPath();
+            screen.rect(this.center.x - this.size.x/2, this.center.y - this.size.y/2, this.size.x, this.size.y);
+            screen.fillStyle = 'green';
+            screen.fill();
+            screen.closePath();
+        }
+    };
+
+    var Keyboarder = function() {
+        var keyState = {};
+
+        window.addEventListener('keydown', function(e) {
+            keyState[e.keyCode] = true;
+        });
+
+        window.addEventListener('keyup', function(e) {
+            keyState[e.keyCode] = false;
+        });
+
+        this.isDown = function(keyCode) {
+            return keyState[keyCode] === true;
+        };
+
+        this.KEYS = { LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40, SPACE: 32 }; 
+    };
+
+    var MakeEnemies = function(game) {
+        var enemies = [];
+        var rows = 10;
+        var columns = 10;
+        var num_enemies = 50;
+        var count = 0;
+        var x,y;
+        for (var i = 0; i < rows; i++) {
+            y = (game.size.y / (rows + 1)) * (i + 1);
+            for (var j = 0; j < columns; j++) {
+                x = (game.size.x / (columns + 1)) * (j + 1);
+                if (count >= num_enemies) {
+                    return enemies;
+                } else {
+                    enemies.push(new Enemy(game,x,y));
+                    count++;
+                }
+            }
+        }
+        return enemies;
+    }
+
+    window.addEventListener('load', function() {
+        new Game();
+    });
+})();
