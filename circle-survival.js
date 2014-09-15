@@ -5,8 +5,13 @@
         this.center = { x: this.size.x / 2, y: this.size.y / 2 };
         this.start = new Date().getTime();
         this.keyboarder = new Keyboarder();
+        this.ui = new Ui();
         this.clock = 0;
-        this.player_types = ['slower', 'ender'];
+        this.last_clock = 0;
+        this.interval = 1;
+        this.score = 0;
+        this.score_multiplier = 1;
+        this.player_types = ['slower', 'ender', 'hero'];
         this.next_player_type_index = 0;
         //From http://www.colorpicker.com/12BFE6 -> analogic
         this.player_colours = [
@@ -21,8 +26,10 @@
         var self = this;
         var tick = function() {
             self.clock = new Date().getTime() - self.start;
+            self.interval = self.clock - self.last_clock;
             self.update();
             self.draw(screen);
+            self.last_clock = self.clock;
             requestAnimationFrame(tick);
         };
 
@@ -30,9 +37,6 @@
             if (e.keyCode === self.keyboarder.KEYS.GENERAL.SPACE) {
                 self.addPlayer();
             }
-        });
-
-        window.addEventListener('keyup', function(e) {
             if (e.keyCode === self.keyboarder.KEYS.GENERAL.ENTER) {
                 self.toggleNextPlayerTypeIndex();
             }
@@ -62,6 +66,8 @@
                     }
                 }
             }
+            this.score += this.interval * this.score_multiplier;
+            this.ui.updateScore(this.score, this.interval);
         },
 
         draw: function(screen) {
@@ -81,10 +87,14 @@
             }
             var next_id = 'P' + (n + 1);
             this.players.push(new Player(this, next_id, this.player_types[this.next_player_type_index]));
+            if (this.player_types[this.next_player_type_index] === 'hero') {
+                this.score_multiplier *= 1.2;
+            }
         },
 
         toggleNextPlayerTypeIndex: function() {
             this.next_player_type_index = (this.next_player_type_index + 1) % (this.player_types.length);
+            this.ui.updateNextPlayer(this.player_types[this.next_player_type_index]);
         },
 
         addBody: function(body) {
@@ -269,6 +279,27 @@
         }
         return collisions;
     }
+
+    var Ui = function() {
+        this.score = document.getElementById('score');
+        this.next_player = document.getElementById('next-player');
+        this.timer = 0;
+    };
+
+    Ui.prototype = {
+        updateScore : function(score, interval) {
+            if (this.timer > 330) {
+                this.score.innerText = "Score : " + parseInt(score);
+                this.timer = 0;
+            } else {
+                this.timer += interval;
+            }
+        },
+
+        updateNextPlayer : function(next_player) {
+            this.next_player.innerText = "Next player to spawn is : " + next_player;
+        }
+    };
 
     window.addEventListener('load', function() {
         new Game();
